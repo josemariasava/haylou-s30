@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Pannello web locale per le cuffie Haylou S30 ANC.
+"""Local web panel for the Haylou S30 ANC headphones.
 
-Parla con le cuffie via RFCOMM (canale 10) usando il protocollo Haylou
-(lo stesso delle S35 ANC supportate da Gadgetbridge) e serve una pagina
-su http://127.0.0.1:8730. Solo libreria standard.
-Gira su Linux (BlueZ + PipeWire) e su Windows (anche come .exe PyInstaller).
+Talks to the headphones over RFCOMM (channel 10) using the Haylou protocol
+(the same as the S35 ANC supported by Gadgetbridge) and serves a page
+at http://127.0.0.1:8730. Standard library only.
+Runs on Linux (BlueZ + PipeWire) and Windows (also as a PyInstaller .exe).
 """
 
 import argparse
@@ -32,9 +32,9 @@ IDLE_EXIT_SECONDS = 90
 
 IS_WINDOWS = sys.platform == "win32"
 IS_LINUX = sys.platform.startswith("linux")
-FROZEN = getattr(sys, "frozen", False)  # eseguibile PyInstaller
+FROZEN = getattr(sys, "frozen", False)  # PyInstaller executable
 
-# resolve(): su Windows _MEIPASS può essere un percorso corto 8.3 (JOSEMA~1)
+# resolve(): on Windows _MEIPASS can be a short 8.3 path (JOSEMA~1)
 HERE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)).resolve()
 STATIC = (HERE / "static").resolve()
 CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home())) / "haylou-s30" if IS_WINDOWS \
@@ -55,7 +55,7 @@ class DeviceError(Exception):
 
 
 def find_headphones():
-    """Restituisce (mac, nome) delle cuffie Haylou connesse."""
+    """Return (mac, name) of the connected Haylou headphones."""
     if IS_WINDOWS:
         return find_headphones_windows()
     out = subprocess.run(["bluetoothctl", "devices", "Connected"],
@@ -68,7 +68,7 @@ def find_headphones():
 
 
 def find_headphones_windows():
-    """Su Windows il MAC sta nell'InstanceId del dispositivo Bluetooth (es. BTHENUM\\...\\..._04349563CE5D)."""
+    """On Windows the MAC is part of the Bluetooth device InstanceId (e.g. BTHENUM\\...\\..._04349563CE5D)."""
     ps = ("Get-PnpDevice -PresentOnly | Where-Object { $_.FriendlyName -like '*" + NAME_HINT + "*' } | "
           "ForEach-Object { $_.FriendlyName + '|' + $_.InstanceId }")
     out = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True,
@@ -115,7 +115,7 @@ class Headphones:
         self.sock = None
 
     def _read_frame(self, deadline):
-        """Legge un frame completo (header ... footer) dal socket."""
+        """Read one complete frame (header ... footer) from the socket."""
         while True:
             start = self.buf.find(b"\xaa\xbb\xcc")
             if start >= 0:
@@ -136,7 +136,7 @@ class Headphones:
             self.buf += chunk
 
     def command(self, payload: bytes):
-        """Invia un comando e restituisce il payload della risposta con lo stesso opcode."""
+        """Send a command and return the payload of the response with the same opcode."""
         with self.lock:
             for attempt in range(2):
                 try:
@@ -146,7 +146,7 @@ class Headphones:
                     deadline = time.time() + 3
                     while True:
                         frame = self._read_frame(deadline)
-                        # i frame spontanei delle cuffie hanno header aabbccc0: li ignoriamo
+                        # unsolicited frames from the headphones have header aabbccc0: ignore them
                         if frame[:4] == HEADER_RX and frame[4] == payload[0]:
                             length = struct.unpack(">H", frame[5:7])[0]
                             return frame[7:7 + length]
@@ -190,7 +190,7 @@ class Headphones:
         self.expect_ok(bytes([0xF2, 0x00, 0x06, 0x00, 0x04, 0x00, 0x09, 1 if start else 0, 0x03]))
 
 
-# --- test microfono (via PipeWire/PulseAudio, profilo HFP) ---
+# --- microphone test (via PipeWire/PulseAudio, HFP profile) ---
 
 def pactl_json(*args):
     out = subprocess.run(["pactl", "-f", "json", *args], capture_output=True, text=True, timeout=5)
@@ -225,7 +225,7 @@ def mic_test(mac, seconds=4):
             time.sleep(0.25)
         if source is None:
             raise DeviceError("Ingresso microfono delle cuffie non trovato")
-        time.sleep(0.5)  # lascia stabilizzare il collegamento SCO
+        time.sleep(0.5)  # let the SCO link settle
         proc = subprocess.Popen(["parec", "-d", source, "--raw", "--format=s16le",
                                  f"--rate={rate}", "--channels=1"], stdout=subprocess.PIPE)
         time.sleep(seconds)
@@ -260,7 +260,7 @@ def mic_test(mac, seconds=4):
             "wav": base64.b64encode(wav.getvalue()).decode()}
 
 
-# --- stato locale (le cuffie non riportano le impostazioni correnti) ---
+# --- local state (the headphones don't report their current settings) ---
 
 def load_state():
     try:
@@ -309,7 +309,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"connected": False, "error": str(e), "settings": load_state()})
             return
         if self.path == "/api/ping":
-            # la pagina usa queste info per scegliere test microfono e pulsante Collega
+            # the page uses this to pick the mic test and show the Connect button
             self._send(200, {"ok": True, "platform": sys.platform,
                              "server_mic": IS_LINUX, "bt_control": IS_LINUX})
             return
@@ -326,7 +326,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global last_request
         last_request = time.time()
-        # accetta solo richieste dalla pagina stessa
+        # only accept requests from the page itself
         origin = self.headers.get("Origin")
         if origin and origin not in (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"):
             self._send(403, {"error": "origin non consentita"})
@@ -385,17 +385,17 @@ def idle_watchdog(server):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--open", action="store_true", help="apri il browser all'avvio")
-    ap.add_argument("--no-idle-exit", action="store_true", help="non chiudere il server a pagina chiusa")
+    ap.add_argument("--open", action="store_true", help="open the browser on start")
+    ap.add_argument("--no-idle-exit", action="store_true", help="keep running after the page is closed")
     args = ap.parse_args()
     if FROZEN:
-        args.open = True  # doppio clic sull'.exe: apri subito la pagina
+        args.open = True  # double-clicked .exe: open the page right away
     url = f"http://127.0.0.1:{PORT}/"
 
     try:
         server = HTTPServer(("127.0.0.1", PORT), Handler)
     except OSError:
-        # già in esecuzione: apri solo la pagina
+        # already running: just open the page
         if args.open:
             webbrowser.open(url)
         return

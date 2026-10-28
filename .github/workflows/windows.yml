@@ -1,4 +1,4 @@
-name: Eseguibile Windows
+name: Windows executable
 
 on:
   push:
@@ -16,14 +16,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Verifica supporto Bluetooth RFCOMM
+      - name: Check Bluetooth RFCOMM support
         run: python -c "import socket; print(socket.AF_BLUETOOTH, socket.BTPROTO_RFCOMM)"
       - run: pip install pyinstaller
-      - name: Compila
+      - name: Build
         run: >
           pyinstaller --onefile --noconsole --name HaylouS30
           --icon assets/icon.ico --add-data "static;static" server.py
-      - name: Prova l'eseguibile
+      - name: Smoke-test the executable
         shell: pwsh
         run: |
           $p = Start-Process dist/HaylouS30.exe -PassThru
@@ -37,7 +37,7 @@ jobs:
         with:
           name: HaylouS30-windows
           path: dist/HaylouS30.exe
-      - name: Allega alla release
+      - name: Attach to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:

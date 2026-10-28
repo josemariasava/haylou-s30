@@ -1,52 +1,54 @@
 # Haylou S30 panel
 
-Pannello per configurare le cuffie **Haylou S30 ANC** da computer, dato che l'app
-ufficiale esiste solo per telefono.
+Control panel for the **Haylou S30 ANC** headphones on a computer, since the official
+app only exists for phones.
 
-| | Come | Requisiti |
+| | How | Requirements |
 |---|---|---|
-| **Windows** | scarica `HaylouS30.exe` dalle [Release](../../releases/latest) e aprilo | nessuno |
+| **Windows** | download `HaylouS30.exe` from [Releases](../../releases/latest) and run it | none |
 | **Linux** | `python3 server.py --open` | Python 3.9+, BlueZ, PipeWire/PulseAudio |
 
-Si apre un pannello nel browser su http://127.0.0.1:8730. Le cuffie devono essere già
-accoppiate e collegate al computer.
+It opens a panel in the browser at http://127.0.0.1:8730. The headphones must already be
+paired and connected to the computer.
 
-La [pagina web](https://josemariasava.github.io/haylou-s30/) ha solo i link di download e il
-test microfono: il browser non può comandare le cuffie, perché Chrome/Edge bloccano in
-Web Serial i servizi Bluetooth con UUID sulla base SIG, compreso il loro (`0000fd3d-…`).
+The [web page](https://josemariasava.github.io/haylou-s30/) only has the download links and
+the microphone test: a browser can't control the headphones, because Chrome/Edge block
+Bluetooth services with SIG-base UUIDs in Web Serial, including theirs (`0000fd3d-…`).
 
-## Funzioni
-- Modalità audio: ANC / trasparenza / off
-- Equalizzatore (preset)
-- Game mode, multipoint, trova cuffie
-- Batteria, firmware
-- Test microfono: registra 4 s, misura il livello e lo fa riascoltare.
-  Su Windows e nella pagina web si sceglie il microfono: quello giusto per le chiamate
-  (Teams ecc.) è il dispositivo **Hands-Free / Auricolare**.
-- Su Linux: Collega/Scollega le cuffie (per passarle a un altro computer)
+## Features
+- Audio mode: ANC / transparency / off
+- Equalizer presets
+- Game mode, multipoint, find headphones
+- Battery, firmware
+- Microphone test: records 4 s, measures the level and plays it back.
+  On Windows and on the web page you pick the microphone: the one used for calls is the
+  **Headset / Hands-Free** device.
+- Linux only: Connect/Disconnect the headphones (to hand them over to another computer)
 
 ## Linux
-`server.py` usa solo la libreria standard. Apre http://127.0.0.1:8730 e si chiude da solo
-~90 s dopo la chiusura della pagina. Per l'icona nel menu copia
-`linux/haylou-s30.desktop` in `~/.local/share/applications/` (correggi il percorso in `Exec`).
-Il test microfono passa temporaneamente al profilo HFP con `pactl` e poi torna ad A2DP.
+`server.py` uses only the standard library. It serves http://127.0.0.1:8730 and exits by itself
+~90 s after the page is closed. For a menu entry copy `linux/haylou-s30.desktop` to
+`~/.local/share/applications/` (adjust the path in `Exec`).
+The microphone test temporarily switches to the HFP profile with `pactl`, then back to A2DP.
 
 ## Build
-- Push su `main` che tocca `static/` → pubblica la pagina su GitHub Pages.
-- Tag `v*` → GitHub Actions compila `HaylouS30.exe` con PyInstaller e lo allega alla release.
+- Push to `main` touching `static/` → publishes the page to GitHub Pages.
+- Tag `v*` → GitHub Actions builds `HaylouS30.exe` with PyInstaller, smoke-tests it and attaches
+  it to the release.
 
-## Protocollo
-Seriale Bluetooth sul servizio `0000fd3d-0000-1000-8000-00805f9b34fb` (JL_SPP, RFCOMM canale 10;
-il chip è JieLi). Stesso protocollo delle Haylou S35 ANC supportate da
+## Protocol
+Bluetooth serial on service `0000fd3d-0000-1000-8000-00805f9b34fb` (JL_SPP, RFCOMM channel 10;
+JieLi chip). Same protocol as the Haylou S35 ANC supported by
 [Gadgetbridge](https://codeberg.org/Freeyourgadget/Gadgetbridge/pulls/6407).
+The standard Serial Port service (RFCOMM channel 1) does not answer these commands.
 
-- Comando: `aabbccc0` + payload + `ddeeff`
-- Risposta: `aabbcc00` + opcode + lunghezza (2 byte) + payload + `ddeeff`; esito `0000` = ok
-- Messaggi spontanei delle cuffie: header `aabbccc0`
-- Info: `02 0005 00 <maschera 32 bit>` → voci TLV (len, tipo, valore): 0 nome, 1 firmware, 2 batteria
-- Funzioni: `08 0004 00 02 <feature> <valore>` — 04 ANC (0 off, 1 ANC, 2 trasparenza), 05 game, 09 multipoint
-- EQ: `f2 0005 00 03 00 07 <preset>` (0 default, 2 rock, 3 classica, 6 bassi, 7 soft)
-- Trova cuffie: `f2 0006 00 04 00 09 <0/1> 03`
+- Command: `aabbccc0` + payload + `ddeeff`
+- Response: `aabbcc00` + opcode + length (2 bytes) + payload + `ddeeff`; status `0000` = ok
+- Unsolicited messages from the headphones: header `aabbccc0`
+- Info: `02 0005 00 <32-bit mask>` → TLV entries (len, type, value): 0 name, 1 firmware, 2 battery
+- Features: `08 0004 00 02 <feature> <value>` — 04 ANC (0 off, 1 ANC, 2 transparency), 05 game, 09 multipoint
+- EQ: `f2 0005 00 03 00 07 <preset>` (0 default, 2 rock, 3 classical, 6 bass, 7 soft)
+- Find headphones: `f2 0006 00 04 00 09 <0/1> 03`
 
-Le cuffie non riportano le impostazioni correnti: la pagina mostra le ultime scelte
-(salvate in `~/.config/haylou-s30/state.json`, `%APPDATA%\haylou-s30` su Windows).
+The headphones don't report their current settings: the panel shows the last ones chosen
+(stored in `~/.config/haylou-s30/state.json`, `%APPDATA%\haylou-s30` on Windows).

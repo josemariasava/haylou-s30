@@ -1,12 +1,12 @@
-// Haylou S30 panel — due modi:
-//  - "server": pagina servita da server.py / HaylouS30.exe, comandi alle cuffie via /api
-//  - "web": pagina statica (GitHub Pages): solo link di download e test microfono nel browser.
-//    Il browser non può comandare le cuffie: Chrome blocca in Web Serial il loro servizio
-//    Bluetooth (UUID 0000fd3d-… sulla base SIG).
+// Haylou S30 panel — two modes:
+//  - "server": page served by server.py / HaylouS30.exe, headphone commands via /api
+//  - "web": static page (GitHub Pages): download links and in-browser mic test only.
+//    The browser can't control the headphones: Chrome's Web Serial blocks their
+//    Bluetooth service (UUID 0000fd3d-… on the SIG base).
 
 const $ = (id) => document.getElementById(id);
 
-// ---------- trasporto server ----------
+// ---------- server transport ----------
 
 class ServerDevice {
   kind = "server";
@@ -30,7 +30,7 @@ class ServerDevice {
   micTest() { return this.post("/api/mic-test"); }
 }
 
-// ---------- test microfono nel browser ----------
+// ---------- in-browser microphone test ----------
 
 async function listMics() {
   const devices = await navigator.mediaDevices.enumerateDevices();
@@ -217,7 +217,7 @@ function bindMic() {
           $("micmeter").style.background = "var(--accent)";
         });
         showMicResult(r);
-        await fillMicSelect(); // dopo il permesso i nomi dei microfoni diventano visibili
+        await fillMicSelect(); // microphone names become visible after permission is granted
       }
     } catch (err) {
       toast(err.name === "NotAllowedError" ? "Permesso microfono negato" : err.message, true);
@@ -227,7 +227,7 @@ function bindMic() {
   });
 }
 
-// su Linux il server cambia profilo Bluetooth e registra; altrove registra il browser
+// on Linux the server switches the Bluetooth profile and records; elsewhere the browser records
 const serverMic = () => dev?.caps.server_mic;
 
 async function detectMode() {
@@ -270,7 +270,7 @@ async function init() {
       if (wasConnected) await dev.disconnect();
       else await dev.connect();
       if (wasConnected) setConnected(false, "Scollegate");
-      else await new Promise((r) => setTimeout(r, 2500)); // tempo per il profilo seriale
+      else await new Promise((r) => setTimeout(r, 2500)); // give the serial profile time to come up
       await refresh();
     } catch (err) { toast(err.message, true); }
     btn.disabled = false;
