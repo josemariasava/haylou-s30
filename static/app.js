@@ -1,19 +1,12 @@
-// Haylou S30 panel — funziona in due modi:
-//  - "server": pagina servita da server.py (Linux), comandi via /api
-//  - "serial": pagina aperta da HTTPS (es. GitHub Pages) in Chrome/Edge, comandi via Web Serial
-
-const SERVICE_UUID = "0000fd3d-0000-1000-8000-00805f9b34fb"; // JL_SPP, RFCOMM canale 10
-const HEADER_TX = [0xaa, 0xbb, 0xcc, 0xc0];
-const FOOTER = [0xdd, 0xee, 0xff];
-const ANC_MODES = { off: 0x00, anc: 0x01, transparency: 0x02 };
-const EQ_PRESETS = { default: 0x00, rock: 0x02, classic: 0x03, bass: 0x06, soft: 0x07 };
-const FEATURE = { anc: 0x04, game: 0x05, multipoint: 0x09 };
-const STORAGE_KEY = "haylou-s30-settings";
+// Haylou S30 panel — due modi:
+//  - "server": pagina servita da server.py / HaylouS30.exe, comandi alle cuffie via /api
+//  - "web": pagina statica (GitHub Pages): solo link di download e test microfono nel browser.
+//    Il browser non può comandare le cuffie: Chrome blocca in Web Serial il loro servizio
+//    Bluetooth (UUID 0000fd3d-… sulla base SIG).
 
 const $ = (id) => document.getElementById(id);
-const hex = (bytes) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 
-// ---------- trasporto server (Linux) ----------
+// ---------- trasporto server ----------
 
 class ServerDevice {
   kind = "server";
@@ -35,165 +28,6 @@ class ServerDevice {
   multipoint(on) { return this.post("/api/multipoint", { on }); }
   find(on) { return this.post("/api/find", { on }); }
   micTest() { return this.post("/api/mic-test"); }
-}
-
-// ---------- trasporto Web Serial (Chrome/Edge, anche Windows) ----------
-
-class SerialDevice {
-  kind = "serial";
-  port = null;
-  reader = null;
-  loopDone = null;
-  buf = [];
-  waiters = [];
-  queue = Promise.resolve();
-
-  static supported() { return "serial" in navigator; }
-
-  isOurs(port) { return port.getInfo().bluetoothServiceClassId === SERVICE_UUID; }
-
-  // riapre una porta già autorizzata in passato, senza chiedere nulla
-  async reconnect() {
-    const ports = await navigator.serial.getPorts();
-    const port = ports.find((p) => this.isOurs(p));
-    if (!port) return false;
-    try { await this.open(port); return true; } catch { return false; }
-  }
-
-  async connect() {
-    const port = await navigator.serial.requestPort({
-      filters: [{ bluetoothServiceClassId: SERVICE_UUID }],
-      allowedBluetoothServiceClassIds: [SERVICE_UUID],
-    });
-    await this.open(port);
-  }
-
-  async open(port) {
-    await port.open({ baudRate: 115200 });
-    this.port = port;
-    this.buf = [];
-    this.loopDone = this.readLoop();
-  }
-
-  async disconnect() {
-    const port = this.port;
-    this.port = null;
-    try { await this.reader?.cancel(); } catch {}
-    await this.loopDone;
-    try { await port?.close(); } catch {}
-  }
-
-  async readLoop() {
-    const port = this.port;
-    while (port.readable && this.port === port) {
-      this.reader = port.readable.getReader();
-      try {
-        for (;;) {
-          const { value, done } = await this.reader.read();
-          if (done) break;
-          this.buf.push(...value);
-          this.extractFrames();
-        }
-      } catch {
-        break;
-      } finally {
-        this.reader.releaseLock();
-      }
-    }
-    if (this.port === port) {
-      this.port = null;
-      try { await port.close(); } catch {}
-      onDisconnected();
-    }
-  }
-
-  extractFrames() {
-    for (;;) {
-      let start = -1;
-      for (let i = 0; i + 2 < this.buf.length; i++) {
-        if (this.buf[i] === 0xaa && this.buf[i + 1] === 0xbb && this.buf[i + 2] === 0xcc) { start = i; break; }
-      }
-      if (start < 0 || this.buf.length < start + 7) return;
-      const len = (this.buf[start + 5] << 8) | this.buf[start + 6];
-      const total = 7 + len + FOOTER.length;
-      if (this.buf.length < start + total) return;
-      const frame = this.buf.slice(start, start + total);
-      this.buf = this.buf.slice(start + total);
-      // le risposte hanno header aabbcc00; i messaggi spontanei (aabbccc0) li ignoriamo
-      if (frame[3] !== 0x00) continue;
-      const i = this.waiters.findIndex((w) => w.opcode === frame[4]);
-      if (i >= 0) this.waiters.splice(i, 1)[0].resolve(frame.slice(7, 7 + len));
-    }
-  }
-
-  command(payload) {
-    const run = async () => {
-      if (!this.port) throw new Error("Cuffie non collegate");
-      const response = new Promise((resolve, reject) => {
-        const waiter = { opcode: payload[0], resolve };
-        this.waiters.push(waiter);
-        setTimeout(() => {
-          const i = this.waiters.indexOf(waiter);
-          if (i >= 0) { this.waiters.splice(i, 1); reject(new Error("Nessuna risposta dalle cuffie")); }
-        }, 3000);
-      });
-      const writer = this.port.writable.getWriter();
-      try { await writer.write(new Uint8Array([...HEADER_TX, ...payload, ...FOOTER])); }
-      finally { writer.releaseLock(); }
-      return response;
-    };
-    const p = this.queue.then(run, run);
-    this.queue = p.catch(() => {});
-    return p;
-  }
-
-  async expectOk(payload) {
-    const resp = await this.command(payload);
-    if (resp[0] !== 0 || resp[1] !== 0) throw new Error("Comando rifiutato dalle cuffie (" + hex(resp) + ")");
-  }
-
-  async info() {
-    const resp = await this.command([0x02, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x0f]);
-    const fields = {};
-    for (let i = 2; i < resp.length;) {
-      const n = resp[i];
-      if (!n || i + 1 + n > resp.length) break;
-      fields[resp[i + 1]] = resp.slice(i + 2, i + 1 + n);
-      i += 1 + n;
-    }
-    const battery = fields[2]?.[0];
-    return {
-      name: fields[0] ? new TextDecoder().decode(new Uint8Array(fields[0])) : "",
-      firmware: fields[1] ? fields[1].map((b) => b.toString(16)).join(".") : null,
-      battery: battery != null && battery <= 100 ? battery : null,
-    };
-  }
-
-  async status() {
-    const settings = loadLocalSettings();
-    if (!this.port) return { connected: false, error: "Non collegate", settings };
-    try { return { connected: true, ...(await this.info()), settings }; }
-    catch (e) { return { connected: false, error: e.message, settings }; }
-  }
-
-  async setFeature(name, value) {
-    await this.expectOk([0x08, 0x00, 0x04, 0x00, 0x02, FEATURE[name], value]);
-  }
-  async anc(mode) { await this.setFeature("anc", ANC_MODES[mode]); saveLocalSettings({ anc: mode }); }
-  async game(on) { await this.setFeature("game", on ? 1 : 0); saveLocalSettings({ game: on }); }
-  async multipoint(on) { await this.setFeature("multipoint", on ? 1 : 0); saveLocalSettings({ multipoint: on }); }
-  async eq(preset) {
-    await this.expectOk([0xf2, 0x00, 0x05, 0x00, 0x03, 0x00, 0x07, EQ_PRESETS[preset]]);
-    saveLocalSettings({ eq: preset });
-  }
-  find(on) { return this.expectOk([0xf2, 0x00, 0x06, 0x00, 0x04, 0x00, 0x09, on ? 1 : 0, 0x03]); }
-}
-
-function loadLocalSettings() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
-}
-function saveLocalSettings(changes) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadLocalSettings(), ...changes })); } catch {}
 }
 
 // ---------- test microfono nel browser ----------
@@ -306,10 +140,6 @@ async function refresh() {
   }
 }
 
-function onDisconnected() {
-  setConnected(false, "Collegamento perso");
-}
-
 function bindGroup(groupId, method, label) {
   $(groupId).addEventListener("click", async (e) => {
     const b = e.target.closest("button");
@@ -398,7 +228,7 @@ function bindMic() {
 }
 
 // su Linux il server cambia profilo Bluetooth e registra; altrove registra il browser
-const serverMic = () => dev.kind === "server" && dev.caps.server_mic;
+const serverMic = () => dev?.caps.server_mic;
 
 async function detectMode() {
   try {
@@ -406,20 +236,22 @@ async function detectMode() {
     const caps = r.ok ? await r.json() : null;
     if (caps?.ok) return new ServerDevice(caps);
   } catch {}
-  return new SerialDevice();
+  return null;
 }
 
 async function init() {
   dev = await detectMode();
-  document.body.dataset.mode = dev.kind;
+  document.body.dataset.mode = dev ? "server" : "web";
   document.body.classList.toggle("browser-mic", !serverMic());
-  if (dev.kind === "server" && !dev.caps.bt_control) $("connbtn").style.display = "none";
+  bindMic();
+  if (!serverMic() && navigator.mediaDevices?.enumerateDevices) fillMicSelect().catch(() => {});
+  if (!dev) return;
 
+  if (!dev.caps.bt_control) $("connbtn").style.display = "none";
   bindGroup("anc", "anc", "Modalità");
   bindGroup("eq", "eq", "Equalizzatore");
   bindToggle("game", "Game mode");
   bindToggle("multipoint", "Multipoint");
-  bindMic();
 
   let finding = false;
   $("find").addEventListener("click", async () => {
@@ -438,31 +270,13 @@ async function init() {
       if (wasConnected) await dev.disconnect();
       else await dev.connect();
       if (wasConnected) setConnected(false, "Scollegate");
-      else if (dev.kind === "server") await new Promise((r) => setTimeout(r, 2500)); // tempo per il profilo seriale
+      else await new Promise((r) => setTimeout(r, 2500)); // tempo per il profilo seriale
       await refresh();
-    } catch (err) {
-      if (err.name !== "NotFoundError") toast(err.message, true); // NotFoundError = selezione annullata
-    }
+    } catch (err) { toast(err.message, true); }
     btn.disabled = false;
   });
 
-  if (dev.kind === "serial") {
-    if (!SerialDevice.supported()) {
-      $("unsupported").style.display = "block";
-      $("connbtn").disabled = true;
-    } else {
-      navigator.serial.addEventListener("disconnect", (e) => {
-        if (e.target === dev.port) { dev.port = null; onDisconnected(); }
-      });
-      await dev.reconnect();
-    }
-    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
-  } else {
-    setInterval(() => fetch("/api/ping").catch(() => {}), 20000);
-  }
-
-  if (!serverMic() && navigator.mediaDevices?.enumerateDevices) fillMicSelect().catch(() => {});
-
+  setInterval(() => fetch("/api/ping").catch(() => {}), 20000);
   await refresh();
   setInterval(refresh, 30000);
 }

@@ -3,15 +3,17 @@
 Pannello per configurare le cuffie **Haylou S30 ANC** da computer, dato che l'app
 ufficiale esiste solo per telefono.
 
-Tre modi di usarlo, stessa interfaccia:
-
 | | Come | Requisiti |
 |---|---|---|
-| **Web** | https://josemariasava.github.io/haylou-s30/ | Chrome o Edge (Web Serial), Windows/macOS/Linux |
-| **Windows .exe** | scarica `HaylouS30.exe` dalle [Release](../../releases) | nessuno |
-| **Python** | `python3 server.py --open` | Python 3.9+, Linux (BlueZ) o Windows |
+| **Windows** | scarica `HaylouS30.exe` dalle [Release](../../releases/latest) e aprilo | nessuno |
+| **Linux** | `python3 server.py --open` | Python 3.9+, BlueZ, PipeWire/PulseAudio |
 
-Le cuffie devono essere già accoppiate e collegate al computer.
+Si apre un pannello nel browser su http://127.0.0.1:8730. Le cuffie devono essere già
+accoppiate e collegate al computer.
+
+La [pagina web](https://josemariasava.github.io/haylou-s30/) ha solo i link di download e il
+test microfono: il browser non può comandare le cuffie, perché Chrome/Edge bloccano in
+Web Serial i servizi Bluetooth con UUID sulla base SIG, compreso il loro (`0000fd3d-…`).
 
 ## Funzioni
 - Modalità audio: ANC / trasparenza / off
@@ -19,11 +21,9 @@ Le cuffie devono essere già accoppiate e collegate al computer.
 - Game mode, multipoint, trova cuffie
 - Batteria, firmware
 - Test microfono: registra 4 s, misura il livello e lo fa riascoltare.
-  Nella versione web e su Windows si sceglie il microfono: quello giusto per le chiamate
+  Su Windows e nella pagina web si sceglie il microfono: quello giusto per le chiamate
   (Teams ecc.) è il dispositivo **Hands-Free / Auricolare**.
 - Su Linux: Collega/Scollega le cuffie (per passarle a un altro computer)
-
-La pagina web si può installare come app (Edge: *⋯ → App → Installa*).
 
 ## Linux
 `server.py` usa solo la libreria standard. Apre http://127.0.0.1:8730 e si chiude da solo
@@ -49,5 +49,4 @@ il chip è JieLi). Stesso protocollo delle Haylou S35 ANC supportate da
 - Trova cuffie: `f2 0006 00 04 00 09 <0/1> 03`
 
 Le cuffie non riportano le impostazioni correnti: la pagina mostra le ultime scelte
-(salvate in `~/.config/haylou-s30/state.json`, `%APPDATA%\haylou-s30` su Windows,
-o nel browser per la versione web).
+(salvate in `~/.config/haylou-s30/state.json`, `%APPDATA%\haylou-s30` su Windows).

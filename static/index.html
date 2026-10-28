@@ -31,8 +31,6 @@
       --accent: #5b8cff;
       --chip: #232831;
     }
-    .banner { background: #3b1414 !important; color: #fecaca !important; }
-    .banner.info { background: var(--chip) !important; color: var(--text) !important; }
   }
   * { box-sizing: border-box; }
   body {
@@ -103,10 +101,13 @@
   .note { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
 
   .btn.small { padding: 4px 10px; font-size: 13px; margin-left: 8px; font-weight: 500; }
-  .banner { display: none; margin-top: 14px; padding: 12px 16px; border-radius: 14px; background: #fde8e8; color: #7f1d1d; font-size: 14px; }
-  .banner.info { background: var(--chip); color: var(--text); }
-  body[data-mode="serial"].disconnected #hint { display: block; }
   body.disconnected .needs-device { opacity: .45; pointer-events: none; }
+  .web-only { display: none; }
+  body[data-mode="web"] .web-only { display: block; }
+  body[data-mode="web"] .app-only, body[data-mode="web"] .needs-device, body[data-mode="web"] #meta { display: none; }
+  .lead { margin: 0 0 12px; }
+  .downloads { display: flex; flex-wrap: wrap; gap: 8px; }
+  a.btn { text-decoration: none; display: inline-block; }
   .browser-mic-only { display: none; }
   body.browser-mic .browser-mic-only { display: block; }
   .micpick { display: none; align-items: center; gap: 10px; margin-top: 10px; }
@@ -129,19 +130,24 @@
     <div>
       <h1 id="name">Haylou S30</h1>
       <div class="meta" id="meta">—</div>
-      <div class="status"><span class="dot" id="dot"></span><span id="conn">Connessione…</span>
+      <div class="meta web-only">Pannello per le cuffie Haylou S30 ANC</div>
+      <div class="status app-only"><span class="dot" id="dot"></span><span id="conn">Connessione…</span>
         <button class="btn ghost small" id="connbtn">Collega</button></div>
-      <div class="battery"><div class="bar"><div class="fill" id="batfill"></div></div><span id="bat" class="meta">—</span></div>
+      <div class="battery app-only"><div class="bar"><div class="fill" id="batfill"></div></div><span id="bat" class="meta">—</span></div>
     </div>
   </div>
 
-  <div class="banner" id="unsupported">
-    Questo browser non può collegarsi alle cuffie. Apri la pagina con <b>Chrome</b> o <b>Edge</b>.
-  </div>
-  <div class="banner info" id="hint">
-    Le cuffie devono essere già accoppiate al computer. Premi <b>Collega</b> e scegli
-    <b>HAYLOU S30</b> dall'elenco: le volte successive si ricollega da solo.
-  </div>
+  <section class="web-only">
+    <h2>Scarica il pannello</h2>
+    <p class="lead">Il browser non può comandare le cuffie (Chrome ed Edge bloccano il loro servizio Bluetooth).
+      Per ANC, equalizzatore e il resto usa l'app per il tuo sistema:</p>
+    <div class="downloads">
+      <a class="btn" href="https://github.com/josemariasava/haylou-s30/releases/latest/download/HaylouS30.exe">Windows (.exe)</a>
+      <a class="btn ghost" href="https://github.com/josemariasava/haylou-s30#linux">Linux (Python)</a>
+    </div>
+    <p class="note">L'.exe non va installato: aprilo con doppio clic. Al primo avvio Windows può chiedere
+      <i>Ulteriori informazioni → Esegui comunque</i>.</p>
+  </section>
 
   <section class="needs-device">
     <h2>Modalità audio</h2>
@@ -198,7 +204,7 @@
     </div>
   </section>
 
-  <p class="note">Le cuffie non comunicano le impostazioni attive: quelle evidenziate sono le ultime scelte da qui.</p>
+  <p class="note app-only">Le cuffie non comunicano le impostazioni attive: quelle evidenziate sono le ultime scelte da qui.</p>
 </main>
 <div id="toast"></div>
 
