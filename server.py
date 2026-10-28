@@ -34,8 +34,9 @@ IS_WINDOWS = sys.platform == "win32"
 IS_LINUX = sys.platform.startswith("linux")
 FROZEN = getattr(sys, "frozen", False)  # eseguibile PyInstaller
 
-HERE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
-STATIC = HERE / "static"
+# resolve(): su Windows _MEIPASS può essere un percorso corto 8.3 (JOSEMA~1)
+HERE = Path(getattr(sys, "_MEIPASS", Path(__file__).parent)).resolve()
+STATIC = (HERE / "static").resolve()
 CONFIG_DIR = Path(os.environ.get("APPDATA", Path.home())) / "haylou-s30" if IS_WINDOWS \
     else Path.home() / ".config" / "haylou-s30"
 STATE_FILE = CONFIG_DIR / "state.json"

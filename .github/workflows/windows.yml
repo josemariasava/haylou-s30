@@ -23,6 +23,16 @@ jobs:
         run: >
           pyinstaller --onefile --noconsole --name HaylouS30
           --icon assets/icon.ico --add-data "static;static" server.py
+      - name: Prova l'eseguibile
+        shell: pwsh
+        run: |
+          $p = Start-Process dist/HaylouS30.exe -PassThru
+          Start-Sleep 5
+          foreach ($f in "", "app.js", "haylou.jpg", "api/ping") {
+            $r = Invoke-WebRequest "http://127.0.0.1:8730/$f" -UseBasicParsing
+            Write-Host "/$f $($r.StatusCode) $($r.Headers['Content-Type'])"
+          }
+          Stop-Process $p
       - uses: actions/upload-artifact@v4
         with:
           name: HaylouS30-windows
