@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Haylou S30
+Comment=Configura le cuffie Haylou S30 ANC
+Exec=python3 /home/jose/Documents/haylou-s30/server.py --open
+Icon=/home/jose/Documents/haylou-s30/static/haylou.jpg
+Terminal=false
+Categories=AudioVideo;Audio;

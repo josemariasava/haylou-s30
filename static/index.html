@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Haylou S30</title>
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6fed">
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #15171c;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --accent: #2f6fed;
+    --accent-text: #ffffff;
+    --chip: #eef0f4;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --bad: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115;
+      --card: #191c22;
+      --text: #e8eaee;
+      --muted: #8b93a1;
+      --line: #2a2f38;
+      --accent: #5b8cff;
+      --chip: #232831;
+    }
+    .banner { background: #3b1414 !important; color: #fecaca !important; }
+    .banner.info { background: var(--chip) !important; color: var(--text) !important; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Ubuntu, sans-serif;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+
+  .hero {
+    display: flex; gap: 20px; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 18px;
+  }
+  .hero .pic {
+    flex: none; width: 112px; height: 112px; border-radius: 14px;
+    background: #fff; display: grid; place-items: center; overflow: hidden;
+  }
+  .hero img { width: 92%; height: 92%; object-fit: contain; }
+  .hero h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.01em; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .status { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); }
+  .dot.off { background: var(--bad); }
+  .battery { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .battery .bar { width: 120px; height: 8px; background: var(--chip); border-radius: 4px; overflow: hidden; }
+  .battery .fill { height: 100%; width: 0; background: var(--ok); transition: width .4s; }
+
+  section {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 16px 18px; margin-top: 14px;
+  }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; background: var(--chip); padding: 4px; border-radius: 12px; }
+  .seg button, .chips button {
+    border: 0; background: transparent; color: var(--text); font: inherit;
+    padding: 10px 6px; border-radius: 9px; cursor: pointer;
+  }
+  .seg button.active { background: var(--card); box-shadow: 0 1px 3px rgba(0,0,0,.15); font-weight: 600; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button { background: var(--chip); padding: 8px 14px; border-radius: 999px; }
+  .chips button.active { background: var(--accent); color: var(--accent-text); }
+  button:disabled { opacity: .5; cursor: progress; }
+
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+  .row + .row { border-top: 1px solid var(--line); }
+  .row small { display: block; color: var(--muted); font-size: 12.5px; }
+  .switch { position: relative; width: 46px; height: 28px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch span { position: absolute; inset: 0; background: var(--line); border-radius: 999px; transition: .2s; cursor: pointer; }
+  .switch span::after { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(18px); }
+
+  .btn {
+    border: 0; background: var(--accent); color: var(--accent-text); font: inherit; font-weight: 600;
+    padding: 10px 16px; border-radius: 10px; cursor: pointer;
+  }
+  .btn.ghost { background: var(--chip); color: var(--text); }
+  .mic-result { margin-top: 12px; display: none; }
+  .meter { height: 10px; background: var(--chip); border-radius: 5px; overflow: hidden; margin: 8px 0; }
+  .meter div { height: 100%; width: 0; transition: width .4s; }
+  .verdict { font-weight: 600; }
+  audio { width: 100%; margin-top: 8px; }
+  .note { color: var(--muted); font-size: 12.5px; margin-top: 10px; }
+
+  .btn.small { padding: 4px 10px; font-size: 13px; margin-left: 8px; font-weight: 500; }
+  .banner { display: none; margin-top: 14px; padding: 12px 16px; border-radius: 14px; background: #fde8e8; color: #7f1d1d; font-size: 14px; }
+  .banner.info { background: var(--chip); color: var(--text); }
+  body[data-mode="serial"].disconnected #hint { display: block; }
+  body.disconnected .needs-device { opacity: .45; pointer-events: none; }
+  .browser-mic-only { display: none; }
+  body.browser-mic .browser-mic-only { display: block; }
+  .micpick { display: none; align-items: center; gap: 10px; margin-top: 10px; }
+  .micpick label { color: var(--muted); font-size: 13px; }
+  .micpick select { flex: 1; min-width: 0; font: inherit; padding: 8px; border-radius: 9px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(80px);
+    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px;
+    font-size: 14px; transition: transform .25s; max-width: calc(100% - 32px);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+  #toast.err { background: var(--bad); color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <div class="hero">
+    <div class="pic"><img src="haylou.jpg" alt="Haylou S30"></div>
+    <div>
+      <h1 id="name">Haylou S30</h1>
+      <div class="meta" id="meta">—</div>
+      <div class="status"><span class="dot" id="dot"></span><span id="conn">Connessione…</span>
+        <button class="btn ghost small" id="connbtn">Collega</button></div>
+      <div class="battery"><div class="bar"><div class="fill" id="batfill"></div></div><span id="bat" class="meta">—</span></div>
+    </div>
+  </div>
+
+  <div class="banner" id="unsupported">
+    Questo browser non può collegarsi alle cuffie. Apri la pagina con <b>Chrome</b> o <b>Edge</b>.
+  </div>
+  <div class="banner info" id="hint">
+    Le cuffie devono essere già accoppiate al computer. Premi <b>Collega</b> e scegli
+    <b>HAYLOU S30</b> dall'elenco: le volte successive si ricollega da solo.
+  </div>
+
+  <section class="needs-device">
+    <h2>Modalità audio</h2>
+    <div class="seg" id="anc">
+      <button data-v="anc">ANC</button>
+      <button data-v="transparency">Trasparenza</button>
+      <button data-v="off">Off</button>
+    </div>
+  </section>
+
+  <section class="needs-device">
+    <h2>Equalizzatore</h2>
+    <div class="chips" id="eq">
+      <button data-v="default">Default</button>
+      <button data-v="bass">Bassi</button>
+      <button data-v="rock">Rock</button>
+      <button data-v="classic">Classica</button>
+      <button data-v="soft">Soft</button>
+    </div>
+  </section>
+
+  <section class="needs-device">
+    <h2>Opzioni</h2>
+    <div class="row">
+      <div>Game mode<small>Bassa latenza audio</small></div>
+      <label class="switch"><input type="checkbox" id="game"><span></span></label>
+    </div>
+    <div class="row">
+      <div>Multipoint<small>Connessione a due dispositivi insieme</small></div>
+      <label class="switch"><input type="checkbox" id="multipoint"><span></span></label>
+    </div>
+    <div class="row">
+      <div>Trova cuffie<small>Fa suonare un segnale nelle cuffie</small></div>
+      <button class="btn ghost" id="find">Suona</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Test microfono</h2>
+    <div class="row" style="padding-top:0">
+      <div>Registra 4 secondi<small>Parla quando parte. La musica si interrompe per qualche secondo.</small></div>
+      <button class="btn" id="mic">Avvia test</button>
+    </div>
+    <div class="micpick" id="micpick">
+      <label for="micsel">Microfono</label>
+      <select id="micsel"></select>
+    </div>
+    <p class="note browser-mic-only">Su Windows scegli quello con <b>Hands-Free</b> o <b>Auricolare</b> nel nome: è lo stesso che deve usare Teams.</p>
+    <div class="mic-result" id="micres">
+      <div class="verdict" id="verdict"></div>
+      <div class="meter"><div id="micmeter"></div></div>
+      <div class="meta" id="micdb"></div>
+      <audio id="micaudio" controls></audio>
+    </div>
+  </section>
+
+  <p class="note">Le cuffie non comunicano le impostazioni attive: quelle evidenziate sono le ultime scelte da qui.</p>
+</main>
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
